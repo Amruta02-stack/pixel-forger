@@ -23,8 +23,14 @@ from image_ops import (
     flip_vertical,
     is_valid_blend_strength,
     is_valid_position,
+    DEFAULT_BRAILLE_WIDTH_CHARS,
+    _luminosity,
+    _rotate_90,
+    _box_downsample_luminosity,
+    _floyd_steinberg_dither,    
 )
 
+import session as session_ops
 
 # --- clamp ---
 
@@ -409,3 +415,235 @@ def test_halftone_white_image_no_dots_odd_cell_size():
     result = halftone(img, 5)
     pixels = [result.getpixel((x, y)) for y in range(25) for x in range(25)]
     assert all(p == (255, 255, 255) for p in pixels)
+
+
+def _img(color=(10, 20, 30), size=(2, 2)):
+       return Image.new("RGB", size, color)
+
+
+# --- session: new_session ---
+
+def test_new_session_starts_clean():
+    img = _img()
+    s = session_ops.new_session(img)
+    assert s["current"] is img
+    assert s["undo_stack"] == []
+    assert s["redo_stack"] == []
+    assert s["dirty"] is False
+
+def test_new_session_has_default_preferences():
+    s = session_ops.new_session(_img())
+    assert s["halftone_cell_size"] == session_ops.DEFAULT_CELL_SIZE
+    assert s["green_margin"] == DEFAULT_GREEN_MARGIN
+    assert s["braille_width_chars"] == DEFAULT_BRAILLE_WIDTH_CHARS
+
+
+# --- session: push_state ---
+
+def test_push_state_replaces_current_and_saves_old_with_label():
+    a, b = _img((1, 1, 1)), _img((2, 2, 2))
+    s = session_ops.push_state(session_ops.new_session(a), b, "Negative")
+    assert s["current"] is b
+    assert len(s["undo_stack"]) == 1
+    assert s["undo_stack"][0][0] is a
+    assert s["undo_stack"][0][1] == "Negative"
+
+def test_push_state_marks_dirty():
+    s = session_ops.push_state(session_ops.new_session(_img()), _img(), "Sepia")
+    assert s["dirty"] is True
+
+def test_push_state_clears_redo_stack():
+    s = session_ops.push_state(session_ops.new_session(_img()), _img(), "A")
+    s = session_ops.undo(s)
+    assert len(s["redo_stack"]) == 1
+    s = session_ops.push_state(s, _img(), "B")
+    assert s["redo_stack"] == []
+
+def test_push_state_keeps_preferences():
+    s = session_ops.set_cell_size(session_ops.new_session(_img()), 7)
+    s = session_ops.push_state(s, _img(), "Grayscale")
+    assert s["halftone_cell_size"] == 7
+
+def test_push_state_does_not_modify_original_session():
+    original = session_ops.new_session(_img())
+    session_ops.push_state(original, _img(), "Negative")
+    assert original["undo_stack"] == []
+    assert original["dirty"] is False
+
+def test_push_state_caps_undo_stack_at_max_steps():
+    s = session_ops.new_session(_img())
+    for i in range(session_ops.MAX_UNDO_STEPS + 5):
+        s = session_ops.push_state(s, _img(), f"op{i}")
+    assert len(s["undo_stack"]) == session_ops.MAX_UNDO_STEPS
+    assert s["undo_stack"][0][1] == "op5"   # oldest 5 were dropped
+
+
+# --- session: undo ---
+
+def test_undo_returns_none_when_nothing_to_undo():
+    assert session_ops.undo(session_ops.new_session(_img())) is None
+
+def test_undo_restores_previous_image():
+    a, b = _img((1, 1, 1)), _img((2, 2, 2))
+    s = session_ops.push_state(session_ops.new_session(a), b, "Negative")
+    result = session_ops.undo(s)
+    assert result["current"] is a
+    assert result["undo_stack"] == []
+
+def test_undo_moves_current_to_redo_stack():
+    a, b = _img((1, 1, 1)), _img((2, 2, 2))
+    s = session_ops.push_state(session_ops.new_session(a), b, "Negative")
+    result = session_ops.undo(s)
+    assert result["redo_stack"][0][0] is b
+    assert result["redo_stack"][0][1] == "Negative"
+
+def test_undo_does_not_modify_original_session():
+    s = session_ops.push_state(session_ops.new_session(_img()), _img(), "A")
+    session_ops.undo(s)
+    assert len(s["undo_stack"]) == 1
+    assert s["redo_stack"] == []
+
+
+# --- session: redo ---
+
+def test_redo_returns_none_when_nothing_to_redo():
+    assert session_ops.redo(session_ops.new_session(_img())) is None
+
+def test_redo_restores_undone_image():
+    a, b = _img((1, 1, 1)), _img((2, 2, 2))
+    s = session_ops.push_state(session_ops.new_session(a), b, "Negative")
+    result = session_ops.redo(session_ops.undo(s))
+    assert result["current"] is b
+    assert result["redo_stack"] == []
+    assert result["undo_stack"][0][0] is a
+
+def test_undo_then_redo_round_trip_matches_original_state():
+    a, b = _img((1, 1, 1)), _img((2, 2, 2))
+    s = session_ops.push_state(session_ops.new_session(a), b, "Sepia")
+    result = session_ops.redo(session_ops.undo(s))
+    assert result["current"] is s["current"]
+    assert result["undo_stack"][0][1] == "Sepia"
+
+
+# --- session: mark_saved / has_unsaved_changes ---
+
+def test_mark_saved_clears_dirty_flag():
+    s = session_ops.push_state(session_ops.new_session(_img()), _img(), "A")
+    assert s["dirty"] is True
+    assert session_ops.mark_saved(s)["dirty"] is False
+
+def test_mark_saved_does_not_modify_original_session():
+    s = session_ops.push_state(session_ops.new_session(_img()), _img(), "A")
+    session_ops.mark_saved(s)
+    assert s["dirty"] is True
+
+def test_has_unsaved_changes_false_for_new_session():
+    assert session_ops.has_unsaved_changes(session_ops.new_session(_img())) is False
+
+def test_has_unsaved_changes_true_after_edit():
+    s = session_ops.push_state(session_ops.new_session(_img()), _img(), "A")
+    assert session_ops.has_unsaved_changes(s) is True
+
+
+# --- session: preferences ---
+
+def test_set_cell_size_updates_value():
+    s = session_ops.set_cell_size(session_ops.new_session(_img()), 25)
+    assert s["halftone_cell_size"] == 25
+
+def test_set_green_margin_updates_value():
+    s = session_ops.set_green_margin(session_ops.new_session(_img()), 55)
+    assert s["green_margin"] == 55
+
+def test_set_braille_width_updates_value():
+    s = session_ops.set_braille_width(session_ops.new_session(_img()), 40)
+    assert s["braille_width_chars"] == 40
+
+def test_preference_changes_do_not_touch_history_or_dirty():
+    s = session_ops.push_state(session_ops.new_session(_img()), _img(), "A")
+    s = session_ops.mark_saved(s)
+    result = session_ops.set_cell_size(s, 9)
+    assert result["dirty"] is False
+    assert result["undo_stack"] == s["undo_stack"]
+    assert result["redo_stack"] == s["redo_stack"]
+
+def test_set_cell_size_does_not_modify_original_session():
+    s = session_ops.new_session(_img())
+    session_ops.set_cell_size(s, 99)
+    assert s["halftone_cell_size"] == session_ops.DEFAULT_CELL_SIZE
+
+
+# --- session: clear_session ---
+
+def test_clear_session_is_empty_with_default_preferences():
+    s = session_ops.clear_session()
+    assert s["current"] is None
+    assert s["undo_stack"] == [] and s["redo_stack"] == []
+    assert s["dirty"] is False
+    assert s["halftone_cell_size"] == session_ops.DEFAULT_CELL_SIZE
+    assert s["green_margin"] == DEFAULT_GREEN_MARGIN
+    assert s["braille_width_chars"] == DEFAULT_BRAILLE_WIDTH_CHARS
+
+
+# --- image_ops private helpers ---
+
+def test_luminosity_white_and_black():
+    assert round(_luminosity(255, 255, 255)) == 255
+    assert _luminosity(0, 0, 0) == 0
+
+def test_luminosity_weights_green_over_red_over_blue():
+    assert _luminosity(0, 255, 0) > _luminosity(255, 0, 0) > _luminosity(0, 0, 255)
+
+def test_rotate_90_swaps_width_and_height():
+    assert _rotate_90(_img(size=(3, 2))).size == (2, 3)
+
+def test_rotate_90_moves_top_left_pixel_to_top_right():
+    img = _img((0, 0, 0), (3, 2))
+    img.putpixel((0, 0), (255, 0, 0))
+    assert _rotate_90(img).getpixel((1, 0)) == (255, 0, 0)
+
+def test_rotate_90_four_times_restores_original():
+    img = _img((0, 0, 0), (3, 2))
+    img.putpixel((0, 0), (255, 0, 0))
+    result = img
+    for _ in range(4):
+        result = _rotate_90(result)
+    assert result.tobytes() == img.tobytes()
+
+def test_box_downsample_returns_requested_grid_size():
+    grid = _box_downsample_luminosity(_img(size=(8, 8)), 4, 2)
+    assert len(grid) == 2
+    assert all(len(row) == 4 for row in grid)
+
+def test_box_downsample_white_image_is_all_bright():
+    grid = _box_downsample_luminosity(_img((255, 255, 255), (4, 4)), 2, 2)
+    assert all(round(v) == 255 for row in grid for v in row)
+
+def test_box_downsample_averages_black_and_white_block():
+    img = _img((0, 0, 0), (2, 1))
+    img.putpixel((1, 0), (255, 255, 255))
+    grid = _box_downsample_luminosity(img, 1, 1)
+    assert abs(grid[0][0] - 127.5) < 1e-6
+
+def test_dither_returns_grid_of_requested_size():
+    on = _floyd_steinberg_dither([[100.0] * 5 for _ in range(3)], 5, 3)
+    assert len(on) == 3
+    assert all(len(row) == 5 for row in on)
+
+def test_dither_all_black_grid_is_all_dots():
+    on = _floyd_steinberg_dither([[0.0] * 3 for _ in range(3)], 3, 3)
+    assert all(all(row) for row in on)
+
+def test_dither_all_white_grid_has_no_dots():
+    on = _floyd_steinberg_dither([[255.0] * 3 for _ in range(3)], 3, 3)
+    assert not any(any(row) for row in on)
+
+def test_dither_mid_gray_gives_mixed_pattern():
+    on = _floyd_steinberg_dither([[128.0] * 4 for _ in range(4)], 4, 4)
+    flat = [v for row in on for v in row]
+    assert True in flat and False in flat
+
+def test_dither_does_not_modify_input_grid():
+    grid = [[128.0] * 4 for _ in range(4)]
+    _floyd_steinberg_dither(grid, 4, 4)
+    assert grid == [[128.0] * 4 for _ in range(4)]
