@@ -89,9 +89,9 @@ Things worth knowing:
 ```
 .
 ├── docs/
-│   ├── PRD.md               # product requirements
-│   └── Design_Document.md   # function signatures, algorithms and formulas
 │   └── DB_Design.md        # design for the SQL implementation
+│   └── PRD.md               # product requirements
+│   └── Design_Document.md   # function signatures, algorithms and formulas
 ├── image_editor_pycodes/
 │      └── main.py            # menus, prompts and file handling
 │      └── image_ops.py       # pixel processing: filters, composites, rotate/flip, Braille preview
