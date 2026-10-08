@@ -754,15 +754,19 @@ def handle_delete(session):
         confirm = input(f"Delete {target}? (y/n): ").strip().lower()
 
     if confirm == "y":
+        target_path = os.path.join(SAVE_FOLDER, target)
         try:
-            os.remove(os.path.join(SAVE_FOLDER, target))
-            print(f"Deleted {target}")
-
+            os.remove(target_path)
         except OSError:
             print(f"Error: cannot delete {target}")
+        else:
+            print(f"Deleted {target}")
+            try:
+                db_ops.delete_image_record(target_path)
+            except sqlite3.Error as exc:
+                print(f"Warning: file deleted, but database record was not removed: {exc}")
     else:
         print("Delete cancelled")
-
     return session
 
 
