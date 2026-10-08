@@ -1,6 +1,6 @@
-# Himage — Image Editor and Management System
+# Pixel Forger — Image Editor and Management System
 
-Himage is a menu-driven image editor that runs in the terminal, written in Python. Load a picture, apply filters, combine images, rotate or flip, preview the result, and save it, all from numbered menus. Every pixel operation is written by hand; [Pillow](https://python-pillow.org/) is used only to open, hold, show and save images. A SQLite database layer records image metadata and export history.
+Pixel-Forger is a menu-driven image editor that runs in the terminal, written in Python. Load a picture, apply filters, combine images, rotate or flip, preview the result, and save it, all from numbered menus. Every pixel operation is written by hand; [Pillow](https://python-pillow.org/) is used only to open, hold, show and save images. A SQLite database layer records image metadata and export history.
 
 ## Features
 
