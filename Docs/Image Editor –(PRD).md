@@ -1,19 +1,8 @@
 # ***Image Editor – Product Requirements Document (PRD)***
 
-**Product:** Terminal Image Editor (Python CLI)\
-**Version:** 1.0\
-**Status:** Draft for review\
-**Source material:** Image Editor Design Document, `main.py`, `image_ops.py`, `session.py`
 
-| Document control |  |
-| --- | --- |
-| Author | *To be completed* |
-| Stakeholders | Product owner, Development, QA |
-| Last updated | October 2026 |
 
----
-
-## 1**. Problem Statement & Description**
+## 1. Problem Statement & Description
 
 People who want a quick edit to a picture must install a full graphical editor or write throw-away scripts, and lightweight tools rarely protect against mistakes (no undo, no warning before unsaved work is lost). This product is a menu-driven Python command-line image editor: the user loads images, applies filters, combines images, transforms them, previews the result and saves it. All pixel processing is written by hand; Pillow is used only to open, hold, show and save images.
 
