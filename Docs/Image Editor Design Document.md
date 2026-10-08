@@ -1,4 +1,4 @@
-# ***I******m******a******g******e****** ******E******d******i******t******o******r*** ***Design Document | Program Design & Development***
+# ***Image Editor – Design Document ***
 
 ## **1. Terminology**&#32;
 
