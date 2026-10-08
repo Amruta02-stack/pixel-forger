@@ -1,4 +1,4 @@
-Himage relational schema. The canonical schema is also embedded in database.py.
+Image relational schema. The canonical schema is also embedded in database.py.
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS projects (
   project_id INTEGER PRIMARY KEY,
