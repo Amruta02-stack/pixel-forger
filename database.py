@@ -10,6 +10,7 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from contextlib import contextmanager
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_DB_PATH = BASE_DIR / "himage.db"
@@ -79,6 +80,12 @@ def connect(db_path: str | Path | None = None) -> sqlite3.Connection:
     connection.execute("PRAGMA foreign_keys = ON")
     return connection
 
+def delete_image_record(file_path, db_path=None) -> bool:
+    path = Path(file_path).expanduser().resolve()
+    initialize_database(db_path)
+    with connect(db_path) as connection:
+        cursor = connection.execute("DELETE FROM images WHERE file_path = ?", (str(path),))
+        return cursor.rowcount > 0
 
 def initialize_database(db_path: str | Path | None = None) -> None:
     """Create all tables/indexes and the default project if absent."""
