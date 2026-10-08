@@ -1,11 +1,13 @@
 import os
-
 from PIL import Image, UnidentifiedImageError
 
 import image_ops
 import session as session_ops
 
-
+#implemenating the SQL lite
+import sqlite3
+from pathlib import Path
+import database as db_ops
 # ---------------------------------------------------------------------------
 # Menus
 # ---------------------------------------------------------------------------
@@ -35,7 +37,7 @@ COMPOSITE_MENU_TEXT = (
 
 TRANSFORM_MENU_TEXT = (
     "\nTransform:\n"
-    "1. Rotate  2. Flip  3. Back"
+    "1. Rotate  2. Flip  3.Back"
 )
 
 PREVIEW_MENU_TEXT = (
@@ -566,10 +568,23 @@ def handle_save(session):
     default_name = _next_default_save_name(SAVE_FOLDER)
 
     raw_name = input(
-        f"Enter save filename in image_name.jpg (default {default_name}): "
-    ).strip()
+        f"Enter save filename (default {default_name}): ").strip()
 
     filename = raw_name if raw_name else default_name
+
+    if (
+        filename in {".", ".."}
+        or "/" in filename
+        or "\\" in filename
+        or Path(filename).name != filename
+    ):
+        print("Error: enter a filename only; directory paths are not allowed.")
+        return session
+
+    if Path(filename).suffix.lower().lstrip(".") not in db_ops.SUPPORTED_FORMATS:
+        print("Error: supported formats are JPG, JPEG, PNG, WEBP, BMP, GIF, and TIFF.")
+        return session
+
     save_path = os.path.join(SAVE_FOLDER, filename)
 
     # The auto-generated default name never collides with an existing
@@ -587,9 +602,29 @@ def handle_save(session):
     try:
         session["current"].save(save_path)
 
-    except (OSError,ValueError):
+    except (OSError, ValueError):
         print(f"Error: cannot save to {save_path}")
         return session
+
+    try:
+        image_id = db_ops.register_image(
+            save_path,
+            session["current"].width,
+            session["current"].height
+        )
+
+        db_ops.record_export(
+            image_id,
+            save_path,
+            session["current"].width,
+            session["current"].height
+        )
+
+    except (OSError, ValueError, sqlite3.Error) as exc:
+        print(
+            "Warning: image saved, but database metadata was not recorded: "
+            f"{exc}"
+        )
 
     session = session_ops.mark_saved(session)
 
@@ -607,7 +642,15 @@ def list_saved_images():
     if not os.path.isdir(SAVE_FOLDER):
         return []
 
-    return sorted(os.listdir(SAVE_FOLDER))
+    supported = {"." + ext for ext in db_ops.SUPPORTED_FORMATS}
+
+    return sorted(
+        name for name in os.listdir(SAVE_FOLDER)
+        if (
+            os.path.isfile(os.path.join(SAVE_FOLDER, name))
+            and Path(name).suffix.lower() in supported
+        )
+    )
 
 
 def handle_show_images():
@@ -728,7 +771,11 @@ def handle_delete(session):
 # ---------------------------------------------------------------------------
 
 def main():
-
+    try:
+        db_ops.initialize_database()
+    except sqlite3.Error as exc:
+        print(f"Warning: database initialization failed: {exc}")
+        
     # Start with an empty session
     session = session_ops.clear_session()
 
