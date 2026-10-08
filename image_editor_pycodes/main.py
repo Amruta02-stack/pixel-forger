@@ -35,7 +35,7 @@ COMPOSITE_MENU_TEXT = (
 
 TRANSFORM_MENU_TEXT = (
     "\nTransform:\n"
-    "1. Rotate  2. Flip  3.Back"
+    "1. Rotate  2. Flip  3. Back"
 )
 
 PREVIEW_MENU_TEXT = (
@@ -289,7 +289,7 @@ def handle_composite_menu(session):
 
         # Ask user for the second image. A bad path returns to the
         # Composite menu instead of re-prompting forever.
-        second_path = input("Enter second image path: ").strip()
+        second_path = input("Enter image path: ").strip().strip('"').strip("'")
 
         try:
             foreground = Image.open(second_path)
