@@ -88,16 +88,17 @@ Things worth knowing:
 
 ```
 .
-├── main.py            # menus, prompts and file handling
-├── image_ops.py       # pixel processing: filters, composites, rotate/flip, Braille preview
-├── session.py         # undo/redo history and preferences (pure functions)
-├── database.py        # application-facing SQLite API
-├── schema.sql         # database schema
-├── requirements.txt   # Python dependencies
-├── tests/             # pytest tests
 ├── docs/
 │   ├── PRD.md               # product requirements
 │   └── Design_Document.md   # function signatures, algorithms and formulas
+│   └── DB_Design.md        # design for the SQL implementation
+├── image_editor_pycodes/
+│      └── main.py            # menus, prompts and file handling
+│      └── image_ops.py       # pixel processing: filters, composites, rotate/flip, Braille preview
+│      └── session.py         # undo/redo history and preferences (pure functions)
+│      └── database.py        # application-facing SQLite API
+│      └── tests/             # pytest tests
+├── schema.sql         # database schema
 ├── himage.db          # created automatically on first launch
 ├── saved_images/      # created automatically when you save
 └── README.md
