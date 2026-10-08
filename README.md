@@ -142,8 +142,11 @@ Primary keys uniquely identify records. Foreign keys enforce relationships betwe
 
 ## Author
 
-Your Name, Course / Institution, Year
+Elluri Thammiksha 
+Ganga Siva Kumar Readdy
+Amruta Nagavi
+Course - Program Design and development
+Institution - Atria university,
+Year - 2nd years(Digital Transformation)
 
-## License
 
-Add a license here (for example MIT), or remove this section.
