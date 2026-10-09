@@ -79,17 +79,25 @@ def connect(db_path: str | Path | None = None) -> sqlite3.Connection:
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
     return connection
+@contextmanager
+def db_session(db_path=None):
+    connection = connect(db_path)
+    try:
+        with connection:
+            yield connection
+    finally:
+        connection.close()
 
 def delete_image_record(file_path, db_path=None) -> bool:
     path = Path(file_path).expanduser().resolve()
     initialize_database(db_path)
-    with connect(db_path) as connection:
+    with db_session(db_path) as connection:
         cursor = connection.execute("DELETE FROM images WHERE file_path = ?", (str(path),))
         return cursor.rowcount > 0
 
 def initialize_database(db_path: str | Path | None = None) -> None:
     """Create all tables/indexes and the default project if absent."""
-    with connect(db_path) as connection:
+    with db_session(db_path) as connection:
         connection.executescript(SCHEMA)
         now = _now()
         connection.execute(
@@ -104,7 +112,7 @@ def create_project(name: str, db_path: str | Path | None = None) -> int:
         raise ValueError("Project name must contain 1 to 120 characters.")
     initialize_database(db_path)
     now = _now()
-    with connect(db_path) as connection:
+    with db_session(db_path) as connection:
         cursor = connection.execute(
             "INSERT INTO projects(name, created_at, updated_at) VALUES (?, ?, ?)",
             (name, now, now),
@@ -140,7 +148,7 @@ def register_image(file_path: str | Path, width: int, height: int,
         raise ValueError(f"Unsupported image format: {fmt or '(none)'}")
     initialize_database(db_path)
     now = _now()
-    with connect(db_path) as connection:
+    with db_session(db_path) as connection:
         if project_id is None:
             project_id = get_default_project_id(connection)
         connection.execute(
@@ -165,7 +173,7 @@ def record_edit(image_id: int, operation: str, parameters: dict[str, Any] | None
     if not operation.strip():
         raise ValueError("Operation name cannot be empty.")
     initialize_database(db_path)
-    with connect(db_path) as connection:
+    with db_session(db_path) as connection:
         cursor = connection.execute(
             "INSERT INTO edit_history(image_id, operation, parameters_json, created_at) VALUES (?, ?, ?, ?)",
             (image_id, operation.strip(), json.dumps(parameters or {}, sort_keys=True), _now()),
@@ -181,7 +189,7 @@ def record_export(image_id: int, output_path: str | Path, width: int, height: in
     if width <= 0 or height <= 0:
         raise ValueError("Export dimensions must be positive.")
     initialize_database(db_path)
-    with connect(db_path) as connection:
+    with db_session(db_path) as connection:
         cursor = connection.execute(
             "INSERT INTO export_history(image_id, output_path, format, width, height, exported_at) VALUES (?, ?, ?, ?, ?, ?)",
             (image_id, str(path), path.suffix.lower().lstrip("."), width, height, _now()),
@@ -198,13 +206,13 @@ def list_images(project_name: str | None = None, db_path: str | Path | None = No
         query += " WHERE p.name = ?"
         params = (project_name,)
     query += " ORDER BY i.imported_at DESC, i.image_id DESC"
-    with connect(db_path) as connection:
+    with db_session(db_path) as connection:
         return [dict(row) for row in connection.execute(query, params).fetchall()]
 
 
 def get_edit_history(image_id: int, db_path: str | Path | None = None) -> list[dict[str, Any]]:
     initialize_database(db_path)
-    with connect(db_path) as connection:
+    with db_session(db_path) as connection:
         return [dict(row) for row in connection.execute(
             "SELECT * FROM edit_history WHERE image_id = ? ORDER BY operation_id", (image_id,)
         ).fetchall()]
@@ -216,7 +224,7 @@ def save_preset(name: str, operation: str, parameters: dict[str, Any],
     if not name or len(name) > 100 or not operation:
         raise ValueError("Preset name and operation must be valid.")
     initialize_database(db_path)
-    with connect(db_path) as connection:
+    with db_session(db_path) as connection:
         cursor = connection.execute(
             "INSERT INTO filter_presets(name, operation, parameters_json, created_at) VALUES (?, ?, ?, ?)",
             (name, operation, json.dumps(parameters, sort_keys=True), _now()),

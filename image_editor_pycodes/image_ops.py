@@ -114,7 +114,9 @@ def halftone(image: Image.Image, cell_size: int) -> Image.Image:
     out_px = out.load()
 
     for cell_top in range(0, height, cell_size):
+
         cell_bottom = min(cell_top + cell_size, height)
+
         for cell_left in range(0, width, cell_size):
             cell_right = min(cell_left + cell_size, width)
 
@@ -175,7 +177,7 @@ def is_valid_braille_width(text: str) -> bool:
 
 
 
-def _box_downsample_luminosity(image: Image.Image, target_width: int, target_height: int):
+def _box_downsample_luminosity(image: Image.Image, target_width: int, target_height: int)-> list : 
     """
     Manually resize image down to (target_width, target_height),
     returning a 2D list (row-major) of average luminosity per output
@@ -235,13 +237,13 @@ def _floyd_steinberg_dither(grid, width: int, height: int):
             error = old_value - (0.0 if dark else 255.0)
 
             if x + 1 < width:
-                work[y][x + 1] += error * 7 / 16
+                work[y][x + 1] += error * 7 / 16  #right
             if y + 1 < height:
                 if x - 1 >= 0:
-                    work[y + 1][x - 1] += error * 3 / 16
-                work[y + 1][x] += error * 5 / 16
+                    work[y + 1][x - 1] += error * 3 / 16 # bottom-left
+                work[y + 1][x] += error * 5 / 16 # straight below
                 if x + 1 < width:
-                    work[y + 1][x + 1] += error * 1 / 16
+                    work[y + 1][x + 1] += error * 1 / 16# diagonally down bottom right
     return on
 
 

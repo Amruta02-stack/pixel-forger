@@ -1,3 +1,5 @@
+# python -m pytest test_database.py     
+
 """Tests for Himage's SQLite data layer."""
 import sqlite3
 

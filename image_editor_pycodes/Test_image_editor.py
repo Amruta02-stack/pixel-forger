@@ -1,3 +1,5 @@
+# python -m pytest test_image_editor.py
+
 """Unit tests for image_ops.py"""
 
 from PIL import Image
