@@ -2,7 +2,7 @@
 
 Pixel-Forger is a menu-driven image editor that runs in the terminal, written in Python. Load a picture, apply filters, combine images, rotate or flip, preview the result, and save it, all from numbered menus. Every pixel operation is written by hand; [Pillow](https://python-pillow.org/) is used only to open, hold, show and save images. A SQLite database layer records image metadata and export history.
 
-## Features
+## FEATURES
 
 - **Filters:** Grayscale, Negative, Sepia, and Halftone (a black-and-white dot pattern with an adjustable cell size).
 - **Composites:** Simple Overlay (adjustable blend strength) and Green-Screen Key (adjustable sensitivity), placed at any `x,y` position.
